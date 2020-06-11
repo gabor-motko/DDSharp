@@ -55,7 +55,7 @@
             this.filePathText.Name = "filePathText";
             this.filePathText.Size = new System.Drawing.Size(567, 20);
             this.filePathText.TabIndex = 1;
-            this.filePathText.Text = "F:\\git\\DDSharp\\DDSViewer\\TestImages\\stonefloor_rgb.dds";
+            this.filePathText.Text = "F:\\git\\DDSharp\\DDSViewer\\TestImages\\colortest_dxt1.dds";
             // 
             // loadButton
             // 

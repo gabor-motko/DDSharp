@@ -6,8 +6,35 @@ namespace DDSharp.S3TC
     /// <summary>
     /// Methods to handle colors in S3 compressions.
     /// </summary>
-    public static class ColorMethods
+    public static class DxtCommon
     {
+        /// <summary>
+        /// Formats the color into a better readable RGBA string.
+        /// </summary>
+        public static string ToOtherString(Color c)
+        {
+            return string.Format("({0}, {1}, {2}, {3})", c.R, c.G, c.B, c.A);
+        }
+
+        public static string FormatColorBlock(Color[,] block)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendFormat("{0} {1} {2} {3}\n", ToOtherString(block[0, 0]), ToOtherString(block[1, 0]), ToOtherString(block[2, 0]), ToOtherString(block[3, 0]));
+            sb.AppendFormat("{0} {1} {2} {3}\n", ToOtherString(block[0, 1]), ToOtherString(block[1, 1]), ToOtherString(block[2, 1]), ToOtherString(block[3, 1]));
+            sb.AppendFormat("{0} {1} {2} {3}\n", ToOtherString(block[0, 2]), ToOtherString(block[1, 2]), ToOtherString(block[2, 2]), ToOtherString(block[3, 2]));
+            sb.AppendFormat("{0} {1} {2} {3}\n", ToOtherString(block[0, 3]), ToOtherString(block[1, 3]), ToOtherString(block[2, 3]), ToOtherString(block[3, 3]));
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Copy a 4x4 color block into the one-dimensional destination array, at the position defined by the compressed pixel's position in the image.
+        /// </summary>
+        public static void PutTexelBlock(Color[,] block, Color[,] dst, int x, int y)
+        {
+
+        }
+
+
         /// <summary>
         /// Convert R5G6B5 binary representation to a Color value.
         /// </summary>

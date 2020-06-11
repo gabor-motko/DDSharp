@@ -20,22 +20,22 @@ namespace DDSharp.S3TC
             Buffer.BlockCopy(pixel, 4, indexTableBytes, 0, 4);
 
             // Reference colors are stored as R5G6B5.
-            Color color0 = ColorMethods.Decode565(color0Binary);
-            Color color1 = ColorMethods.Decode565(color0Binary);
-            Color color2 = hasAlpha ? ColorMethods.Lerp(color0, color1, 0.5f) : ColorMethods.Lerp(color0, color1, 2f / 3f);
-            Color color3 = hasAlpha ? Color.FromArgb(0, 0, 0, 0) : ColorMethods.Lerp(color0, color1, 1f / 3f);  // If the image has alpha, an index of 3 represents a transparent pixel.
+            Color color0 = DxtCommon.Decode565(color0Binary);
+            Color color1 = DxtCommon.Decode565(color1Binary);
+            Color color2 = hasAlpha ? DxtCommon.Lerp(color0, color1, 0.5f) : DxtCommon.Lerp(color0, color1, 2f / 3f);
+            Color color3 = hasAlpha ? Color.FromArgb(0, 0, 0, 0) : DxtCommon.Lerp(color0, color1, 1f / 3f);  // If the image has alpha, an index of 3 represents a transparent pixel.
 
             // Put all ref colors in an array for easier indexing.
             Color[] refColors = new Color[] { color0, color1, color2, color3 };
-
+            //Color[] refColors = new Color[] { Color.Black, Color.Red, Color.Green, Color.Blue };
             // Assign the texel colors.
             Color[,] texels = new Color[4,4];
             for (int i = 0; i < 4; ++i)
             {
-                texels[i, 0] = refColors[(indexTableBytes[i] & 0xc0) >> 6];
-                texels[i, 1] = refColors[(indexTableBytes[i] & 0x30) >> 4];
-                texels[i, 2] = refColors[(indexTableBytes[i] & 0x0c) >> 2];
-                texels[i, 3] = refColors[indexTableBytes[i] & 0x03];
+                texels[3, i] = refColors[(indexTableBytes[i] & 0xc0) >> 6];
+                texels[2, i] = refColors[(indexTableBytes[i] & 0x30) >> 4];
+                texels[1, i] = refColors[(indexTableBytes[i] & 0x0c) >> 2];
+                texels[0, i] = refColors[indexTableBytes[i] & 0x03];
             }
 
             return texels;

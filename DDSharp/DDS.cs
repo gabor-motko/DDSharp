@@ -2,6 +2,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using System.Drawing;
+using DDSharp.S3TC;
 
 namespace DDSharp
 {
@@ -93,6 +94,8 @@ namespace DDSharp
         public static DDS LoadFromFile(Stream stream, Action<string> log)
         {
             DDS image = new DDS();
+            System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
             using (BinaryReader reader = new BinaryReader(stream))
             {
                 #region Header
@@ -145,22 +148,51 @@ namespace DDSharp
 
                 #region Main Surface
                 // The main surface data begins here.
-                // If the DdsPixelFormatFlags.UncompressedRGB flag is set, the image data is uncompressed and its length is Height * Width * BytesPerPixel.
-                // If the DdsPixelFormatFlags.FourCC flag is set, the image data is either compressed (DXTn) or is in a DXGI pixel format. Length is equal to DdsHeader.Pitch.
+
+                // DXTn-compressed data
                 if (pf.Flags.HasFlag(DdsPixelFormatFlags.FourCC))
                 {
+                    // DXTn decompression decompresses a pixel into a 4x4 block of texels.
+                    // If the output image's dimensions aren't multiples of four, an intermediate image is created where pixels that are out of bounds are chopped off.
+                    uint w = header.Width + ((4 - (header.Width % 4)) % 4); // Decompressed temporary image dimensions
+                    uint h = header.Height + ((4 - (header.Height % 4)) % 4);
+                    uint wComp = w / 4; // Compressed image dimensions
+                    uint hComp = h / 4;
+                    Color[,] texels = new Color[w, h];
                     switch (pf.FourCC)
                     {
+                        // BC1 compression with one-bit alpha.
                         case "DXT1":
                             {
-
+                                for (uint i = 0; i < header.Pitch / 8; ++i)
+                                {
+                                    // Decode a DXT1 texel block from a 64-bit pixel.
+                                    Color[,] block = Dxt1.DecodePixel(reader.ReadBytes(8));
+                                    // Now copy the texel block to the right place in the temporary image.
+                                    // The (x, y) position of the (0, 0) texel of the block is calculated from its (xc, yc) position in the compressed image.
+                                    uint xc = i % wComp;    // The pixel's position in the current scanline
+                                    uint yc = i / wComp;    // The current scanline from the start of the image
+                                    uint x = xc * 4;
+                                    uint y = yc * 4;
+                                    //log(DxtCommon.FormatColorBlock(block));
+                                    // The texture block's range is (x + xt, y + yt) where xt, yt = 0..3.
+                                    for(int row = 0; row < 4; ++row)
+                                    {
+                                        texels[x, y + row] = block[0, row];
+                                        texels[x + 1, y + row] = block[1, row];
+                                        texels[x + 2, y + row] = block[2, row];
+                                        texels[x + 3, y + row] = block[3, row];
+                                    }
+                                }
                             }
                             break;
+                        // BC2 compression with explicit alpha. DXT2 is premultiplied, DXT3 is not.
                         case "DXT3":
                             {
 
                             }
                             break;
+                        // BC3 compression with gradient alpha. DXT4 is premultiplied, DXT5 is not.
                         case "DXT5":
                             {
 
@@ -169,18 +201,26 @@ namespace DDSharp
                         default:
                             throw new InvalidOperationException(string.Format("The FourCC identifier {0} is not valid.", pf.FourCC));
                     }
+                    // The 2D array is then cropped to the correct dimensions and flattened.
+                    // TODO: find a more elegant solution to flattening.
+                    image.MainSurfacePixels = new Color[header.Width * header.Height];
+                    for(int row = 0; row < header.Height; ++row)
+                    {
+                        for(int col = 0; col < header.Width; ++col)
+                        {
+                            image.MainSurfacePixels[row * header.Width + col] = texels[col, row];
+                        }
+                    }
                 }
                 else if (pf.Flags.HasFlag(DdsPixelFormatFlags.UncompressedRGB))
                 {
                     // Read and decode uncompressed RGB image data.
                     uint pixelSize = pf.RgbBitCount / 8;
                     uint length = header.Width * header.Height * pixelSize;
-                    uint pixelCount = length / pixelSize;
+                    uint pixelCount = header.Width * header.Height;
 
                     image.MainSurfacePixels = new Color[pixelCount];
 
-                    System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
-                    stopwatch.Start();
                     for (int i = 0; i < pixelCount; ++i)
                     {
                         // The length of pixels is determined by DdsPixelFormat.RgbBitCount, but because bitmasks are DWORDs, they cannot exceed 32 bits.
@@ -210,8 +250,6 @@ namespace DDSharp
 
                         image.MainSurfacePixels[i] = Color.FromArgb((int)(a * 255), (int)(r * 255), (int)(g * 255), (int)(b * 255));
                     }
-                    stopwatch.Stop();
-                    log(stopwatch.ElapsedMilliseconds.ToString());
                 }
                 else if (pf.Flags.HasFlag(DdsPixelFormatFlags.Yuv))
                 {
@@ -236,6 +274,8 @@ namespace DDSharp
                 // Volume textures are TBI.
                 #endregion
             }
+            stopwatch.Stop();
+            log(string.Format("Image loaded in {0:f3} seconds.", stopwatch.ElapsedMilliseconds / 1000f));
             return image;
         }
     }
